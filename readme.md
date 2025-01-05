@@ -42,6 +42,16 @@ export default defineConfig({
 
 - `skipNodeModules`: Whether to skip transforming components in `node_modules`. Defaults to `false`.
 
+### TypeScript
+
+Add the following "triple-slash directive" to a module in your project (usually the entry module):
+
+```ts
+/// <reference types="vite-react-classname/types/react" />
+```
+
+This will add the `className` prop to the `React.Attributes` interface.
+
 ## FAQ
 
 #### What's all supported?
