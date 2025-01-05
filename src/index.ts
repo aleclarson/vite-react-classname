@@ -37,9 +37,9 @@ const ComponentNode = [
   T.FunctionExpression,
 ] as const
 
-export default function viteTsxCn(): Plugin {
+export default function reactClassName(options: Options): Plugin {
   return {
-    name: 'vite-tsx-cn',
+    name: 'vite-react-classname',
     enforce: 'pre',
     async transform(code, id) {
       if (!id.endsWith('.tsx')) return
@@ -92,7 +92,7 @@ export default function viteTsxCn(): Plugin {
           return
         }
 
-        console.log('[vite-tsx-cn] Transformed:', id)
+        console.log('[vite-react-classname] Transformed:', id)
 
         return {
           code: result.toString(),
@@ -212,7 +212,7 @@ function addClassNameProp(
         }
 
         console.warn(
-          '[vite-tsx-cn] Unsupported "className" value at',
+          '[vite-react-classname] Unsupported "className" value at',
           filename +
             ':' +
             classNameAttr.loc.start.line +
