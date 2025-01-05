@@ -92,3 +92,24 @@ Not really. It works with any JSX library, but currently, the package only ships
     )
   }
   ```
+
+## Roadmap
+
+Contributions are welcome! Here are some ideas:
+
+- Add support for class components
+- Add support for other JSX libraries
+- Allow overriding the `className` prop name
+- Allow specifying a custom `cn(…)` function. Currently, the `className` is merely concatenated with the original `className` expression.
+
+  ```tsx
+  function Before({ onClick }) {
+    return <div className="btn" onClick={onClick} />
+  }
+
+  // Here's what a component looks like after transformation.
+  // Specifically, note the `$cn` variable.
+  function After({ className: $cn, onClick }) {
+    return <div className={'btn' + ($cn ? ' ' + $cn : '')} onClick={onClick} />
+  }
+  ```
