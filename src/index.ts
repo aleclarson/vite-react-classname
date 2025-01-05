@@ -37,12 +37,22 @@ const ComponentNode = [
   T.FunctionExpression,
 ] as const
 
+type Options = {
+  /**
+   * Whether to skip transforming components in `node_modules`.
+   *
+   * @default false
+   */
+  skipNodeModules?: boolean
+}
+
 export default function reactClassName(options: Options): Plugin {
   return {
     name: 'vite-react-classname',
     enforce: 'pre',
     async transform(code, id) {
       if (!id.endsWith('.tsx')) return
+      if (options.skipNodeModules && id.includes('node_modules')) return
 
       const ast = parse(code, {
         filePath: id,
