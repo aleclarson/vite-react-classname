@@ -139,14 +139,14 @@ function addClassNameProp(
 
     // className will exist in the rest prop if it exists
     const restProp = propsArgument.properties.find(isRestElement)
-    if (restProp) {
-      return // Assume the className is being forwarded
+    if (restProp && isIdentifier(restProp.argument)) {
+      propsVariable = restProp.argument
+    } else {
+      // className must be added to the destructured props
+      const openBraceIndex = propsArgument.range[0]
+      result.appendLeft(openBraceIndex + 1, 'className: $cn, ')
+      classNameAdded = true
     }
-
-    // className must be added to the destructured props
-    const openBraceIndex = propsArgument.range[0]
-    result.appendLeft(openBraceIndex + 1, 'className: $cn, ')
-    classNameAdded = true
   } else if (isIdentifier(propsArgument)) {
     propsVariable = propsArgument
   } else {
