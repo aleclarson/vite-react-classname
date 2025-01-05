@@ -59,6 +59,10 @@ This will add the `className` prop to the `React.Attributes` interface.
 - Function components of almost any kind (arrow syntax, `function` keyword, etc.), except if you're using [method definition](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/Method_definitions) syntax.
 - Class components are **NOT** supported (PR welcome).
 
+#### Is this React-specific?
+
+Not really. It works with any JSX library, but currently, the package only ships with a `react` type definition. That doesn't mean you can't use it with other libraries; you'll just have to add your own type definitions. PRs welcome!
+
 #### When is transformation skipped?
 
 - When props destructuring is encountered, and the `className` prop is explicitly declared, it's assumed the `className` prop is being forwarded. No transformation is done in this case.
