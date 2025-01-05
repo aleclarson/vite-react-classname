@@ -19,7 +19,7 @@
   "author": "Alec Larson",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aleclarson/xxx.git"
+    "url": "https://github.com/aleclarson/vite-react-classname.git"
   },
   "prettier": "@alloc/prettier-config",
   "scripts": {
