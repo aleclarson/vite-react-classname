@@ -92,8 +92,6 @@ export default function reactClassName(options: Options): Plugin {
           return
         }
 
-        console.log('[vite-react-classname] Transformed:', id)
-
         return {
           code: result.toString(),
           map: result.generateMap({ hires: 'boundary' }),
