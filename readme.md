@@ -38,9 +38,10 @@ export default defineConfig({
 })
 ```
 
-### Options
+### Plugin options
 
-- `skipNodeModules`: Whether to skip transforming components in `node_modules`. Defaults to `false`.
+- `skipNodeModules?: boolean`  
+  Whether to skip transforming components in `node_modules`. Note that only uncompiled JSX is transformed (not `React.createElement` or `jsx` calls). Defaults to `false`.
 
 ### TypeScript
 
@@ -52,11 +53,31 @@ Add the following "triple-slash directive" to a module in your project (usually 
 
 This will add the `className` prop to the `React.Attributes` interface.
 
+### The `class` prop
+
+This plugin also adds a `class` prop to every component. This prop gets transformed into a `className` prop at compile time. This has 2 main benefits:
+
+- It's more concise than `className`
+- It supports an _inline_ array expression:
+
+  ```tsx
+  function Component() {
+    const [foo, setFoo] = useState(false)
+
+    return <div class={['btn', foo && 'foo']}>
+  }
+  ```
+
+  The `class` array must be a _static_ array. It's transformed into a [`$join`](https://github.com/aleclarson/vite-react-classname/blob/f64086920b3e7ed07394b3c28f24638f814b17d4/src/client.ts) function call at compile time, which filters out falsy values, flattens nested arrays (which _can_ be dynamic), and joins the class names with a space.
+
+> [!WARNING]
+> You _cannot_ use both `class` and `className` on the same JSX element.
+
 ## FAQ
 
-#### What's all supported?
+#### What kinds of components are supported?
 
-- Function components of almost any kind (arrow syntax, `function` keyword, etc.), except if you're using [method definition](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/Method_definitions) syntax.
+- Most function components (arrow syntax, `function` keyword), but not [method definition](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/Method_definitions) syntax.
 - Class components are **NOT** supported (PR welcome).
 
 #### Is this React-specific?
@@ -78,6 +99,10 @@ Not really. It works with any JSX library, but currently, the package only ships
   function SpreadExample(props) {
     return <div {...props} />
   }
+  // ✅ Component is transformed
+  function AnotherExample(props) {
+    return <div {...props} className="btn" />
+  }
   ```
 - Context providers are ignored. Their immediate JSX child is transformed instead.
   ```tsx
@@ -93,23 +118,11 @@ Not really. It works with any JSX library, but currently, the package only ships
   }
   ```
 
-## Roadmap
+## Ideas
 
-Contributions are welcome! Here are some ideas:
+Here are some ideas for improvements:
 
 - Add support for class components
 - Add support for other JSX libraries
-- Allow overriding the `className` prop name
-- Allow specifying a custom `cn(…)` function. Currently, the `className` is merely concatenated with the original `className` expression.
 
-  ```tsx
-  function Before({ onClick }) {
-    return <div className="btn" onClick={onClick} />
-  }
-
-  // Here's what a component looks like after transformation.
-  // Specifically, note the `$cn` variable.
-  function After({ className: $cn, onClick }) {
-    return <div className={'btn' + ($cn ? ' ' + $cn : '')} onClick={onClick} />
-  }
-  ```
+Contributions are welcome!
