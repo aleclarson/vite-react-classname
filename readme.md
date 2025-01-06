@@ -29,7 +29,7 @@ Note that only `.jsx` and `.tsx` files are transformed. Any JSX that's been comp
 ## Install
 
 ```
-pnpm add vite-react-classname
+pnpm add vite-react-classname -D
 ```
 
 ## Usage
