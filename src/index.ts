@@ -35,7 +35,7 @@ export type Options = {
   onTransform?: (code: string, id: string) => void
 }
 
-export default function reactClassName(options: Options): Plugin {
+export default function reactClassName(options: Options = {}): Plugin {
   return {
     name: 'vite-react-classname',
     enforce: 'pre',
