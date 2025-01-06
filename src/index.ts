@@ -4,26 +4,11 @@ import {
   AST_NODE_TYPES as T,
   TSESTree,
 } from '@typescript-eslint/typescript-estree'
-import { isIdentifier } from '@typescript-eslint/utils/ast-utils'
+import { isIdentifier, isNodeOfType } from '@typescript-eslint/utils/ast-utils'
 import MagicString from 'magic-string'
 import path from 'path'
 import { isArray } from 'radashi'
 import { Plugin } from 'vite'
-import {
-  isArrayExpression,
-  isJSXAttribute,
-  isJSXElement,
-  isJSXExpression,
-  isJSXIdentifier,
-  isJSXMemberExpression,
-  isJSXSpreadAttribute,
-  isLiteral,
-  isMemberExpression,
-  isObjectPattern,
-  isProperty,
-  isRestElement,
-  isReturnStatement,
-} from './typeGuards'
 
 type ComponentNode =
   | TSESTree.FunctionDeclaration
@@ -340,17 +325,6 @@ function findParentNode<TNodeType extends T>(
   }
 }
 
-function findAndTransformClassAttribute(
-  node: TSESTree.JSXElement,
-  result: MagicString,
-  features: Features
-) {
-  const classAttribute = findClassAttribute(node)
-  if (classAttribute) {
-    transformClassAttribute(classAttribute, result, features)
-  }
-}
-
 function findClassAttribute(node: TSESTree.JSXElement) {
   return node.openingElement.attributes.find(
     (attr): attr is TSESTree.JSXAttribute =>
@@ -390,3 +364,17 @@ function jsxIdentifierEndsWith(
   }
   return false
 }
+
+const isJSXElement = isNodeOfType(T.JSXElement)
+const isJSXIdentifier = isNodeOfType(T.JSXIdentifier)
+const isJSXMemberExpression = isNodeOfType(T.JSXMemberExpression)
+const isJSXAttribute = isNodeOfType(T.JSXAttribute)
+const isJSXSpreadAttribute = isNodeOfType(T.JSXSpreadAttribute)
+const isJSXExpression = isNodeOfType(T.JSXExpressionContainer)
+const isReturnStatement = isNodeOfType(T.ReturnStatement)
+const isObjectPattern = isNodeOfType(T.ObjectPattern)
+const isRestElement = isNodeOfType(T.RestElement)
+const isProperty = isNodeOfType(T.Property)
+const isMemberExpression = isNodeOfType(T.MemberExpression)
+const isArrayExpression = isNodeOfType(T.ArrayExpression)
+const isLiteral = isNodeOfType(T.Literal)
