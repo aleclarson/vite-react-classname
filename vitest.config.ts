@@ -5,5 +5,8 @@ export default defineConfig({
     globals: true,
     isolate: false,
     exclude: ['**/vendor/**', 'node_modules'],
+    env: {
+      TEST: 'vite-react-classname',
+    },
   },
 })

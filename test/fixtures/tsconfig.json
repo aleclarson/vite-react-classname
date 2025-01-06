@@ -1,0 +1,9 @@
+{
+  "include": ["./"],
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "jsx": "react-jsx",
+    "types": ["../../types/react.d.ts"]
+  }
+}

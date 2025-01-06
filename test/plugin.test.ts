@@ -30,7 +30,7 @@ describe('vite-react-classname', () => {
     expect(result).toMatchInlineSnapshot(`
       "import { forwardRef } from 'react'
 
-      const Component = forwardRef(({className: $cn, }, ref: React.Ref<HTMLDivElement>) => {
+      const Component = forwardRef(({className: $cn,}, ref: React.Ref<HTMLDivElement>) => {
         return <div ref={ref} className={$cn}>Test</div>
       })
       "
@@ -40,14 +40,15 @@ describe('vite-react-classname', () => {
   test('preserve existing className prop', async () => {
     const result = await transform('existing-classname.tsx')
     expect(result).toMatchInlineSnapshot(`
-      "import clsx from 'clsx'
+      "import { $join } from "/@fs//path/to/vite-react-classname/client.js";
+      import clsx from 'clsx'
 
       function Component({ className: $cn }) {
-        return <div className={"existing" + ($cn ? " " + $cn : "")}>Test</div>
+        return <div className={$join("existing", $cn)}>Test</div>
       }
 
       function Component2({ className: $cn }) {
-        return <div className={clsx('a', 'b', 'c') + ($cn ? " " + $cn : "")}>Test</div>
+        return <div className={$join(clsx('a', 'b', 'c'), $cn)}>Test</div>
       }
       "
     `)
@@ -58,8 +59,27 @@ describe('vite-react-classname', () => {
     expect(result).toMatchInlineSnapshot(`
       "import { ReactNode } from 'react'
 
-      function Component({className: $cn,  children }: { children: ReactNode }) {
+      function Component({className: $cn, children }: { children: ReactNode }) {
         return <div className={$cn}>{children}</div>
+      }
+      "
+    `)
+  })
+
+  test('skip context provider', async () => {
+    const result = await transform('context-provider.tsx')
+    expect(result).toMatchInlineSnapshot(`
+      "import { $join } from "/@fs//path/to/vite-react-classname/client.js";
+      import { createContext } from 'react'
+
+      const Context = createContext({})
+
+      function Foo({ className: $cn }) {
+        return (
+          <Context.Provider value={{}}>
+            <div className={$join("foo", $cn)}>Test</div>
+          </Context.Provider>
+        )
       }
       "
     `)
@@ -68,10 +88,28 @@ describe('vite-react-classname', () => {
   test('skip when spread props are used', async () => {
     const result = await transform('spread-props.tsx')
     expect(result).toMatchInlineSnapshot(`
-      "import React from 'react'
+      "import { $join } from "/@fs//path/to/vite-react-classname/client.js";
+      function Component(props: any) {
+        return (
+          <div {...props} className={$join("foo", props.className)}>
+            Test
+          </div>
+        )
+      }
+      "
+    `)
+  })
 
-      function Component(props: React.HTMLAttributes<HTMLDivElement>) {
-        return <div {...props}>Test</div>
+  test('handle `class` prop with an array expression', async () => {
+    const result = await transform('array-expression.tsx')
+    expect(result).toMatchInlineSnapshot(`
+      "import { $join } from "/@fs//path/to/vite-react-classname/client.js";
+      function Foo({ className: $cn }) {
+        return <div className={$join('foo', 'bar', $cn)} />
+      }
+
+      function Bar({ className: $cn }) {
+        return <Foo className={$join('foo', 'bar', $cn)} />
       }
       "
     `)
