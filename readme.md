@@ -1,6 +1,8 @@
 # vite-react-classname
 
-This plugin adds a `className` prop to every React component in your project (including `node_modules`). Now you don't have to do the grunt work of defining a `className` prop for every component, merging class names via `cn(…)`, etc.
+Imagine if every function component in your project automatically received a `className` prop. What if this `className` prop was automatically forwarded to the JSX elements returned by the component? What if you never had to manually merge class names with a utility function (e.g. `cn`, `clsx`, etc.) ever again?
+
+This Vite plugin gives you that.
 
 #### Example
 
