@@ -22,6 +22,8 @@ export function Button() {
 }
 ```
 
+Note that only `.jsx` and `.tsx` files are transformed. Any JSX that's been compiled to JS will not be transformed. This can lead to false positives in the type definitions, since the `className` prop will be added to the `React.Attributes` interface. It's recommended for JSX libraries to use `"jsx": "preserve"` in their `tsconfig.json` file, rather than compiling JSX to JS.
+
 ## Install
 
 ```
