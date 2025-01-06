@@ -14,7 +14,6 @@ const isJSXIdentifier = isNodeOfType(T.JSXIdentifier)
 const isJSXAttribute = isNodeOfType(T.JSXAttribute)
 const isJSXSpreadAttribute = isNodeOfType(T.JSXSpreadAttribute)
 const isJSXExpression = isNodeOfType(T.JSXExpressionContainer)
-const isImportDeclaration = isNodeOfType(T.ImportDeclaration)
 const isFunctionDeclaration = isNodeOfType(T.FunctionDeclaration)
 const isArrowFunctionExpression = isNodeOfType(T.ArrowFunctionExpression)
 const isFunctionExpression = isNodeOfType(T.FunctionExpression)
@@ -22,7 +21,7 @@ const isReturnStatement = isNodeOfType(T.ReturnStatement)
 const isObjectPattern = isNodeOfType(T.ObjectPattern)
 const isRestElement = isNodeOfType(T.RestElement)
 const isProperty = isNodeOfType(T.Property)
-const isConditionalExpression = isNodeOfType(T.ConditionalExpression)
+const isCallExpression = isNodeOfType(T.CallExpression)
 const isMemberExpression = isNodeOfType(T.MemberExpression)
 const isLiteral = isNodeOfType(T.Literal)
 
@@ -224,6 +223,17 @@ function addClassNameProp(
           const [start, end] = classNameAttr.value.range
           result.appendRight(start, '{')
           result.prependLeft(end, ' + ($cn ? " " + $cn : "")}')
+          return
+        }
+
+        if (isJSXExpression(classNameAttr.value)) {
+          const [start, end] = classNameAttr.value.expression.range
+          if (!isCallExpression(classNameAttr.value.expression)) {
+            result.appendRight(start, '(')
+            result.prependLeft(end, ') + ($cn ? " " + $cn : "")')
+            return
+          }
+          result.prependLeft(end, ' + ($cn ? " " + $cn : "")')
           return
         }
 
