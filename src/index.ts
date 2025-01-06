@@ -4,26 +4,26 @@ import {
   AST_NODE_TYPES as T,
   TSESTree,
 } from '@typescript-eslint/typescript-estree'
-import { isIdentifier, isNodeOfType } from '@typescript-eslint/utils/ast-utils'
+import { isIdentifier } from '@typescript-eslint/utils/ast-utils'
 import MagicString from 'magic-string'
+import path from 'path'
 import { isArray } from 'radashi'
 import { Plugin } from 'vite'
-
-const isJSXElement = isNodeOfType(T.JSXElement)
-const isJSXIdentifier = isNodeOfType(T.JSXIdentifier)
-const isJSXAttribute = isNodeOfType(T.JSXAttribute)
-const isJSXSpreadAttribute = isNodeOfType(T.JSXSpreadAttribute)
-const isJSXExpression = isNodeOfType(T.JSXExpressionContainer)
-const isFunctionDeclaration = isNodeOfType(T.FunctionDeclaration)
-const isArrowFunctionExpression = isNodeOfType(T.ArrowFunctionExpression)
-const isFunctionExpression = isNodeOfType(T.FunctionExpression)
-const isReturnStatement = isNodeOfType(T.ReturnStatement)
-const isObjectPattern = isNodeOfType(T.ObjectPattern)
-const isRestElement = isNodeOfType(T.RestElement)
-const isProperty = isNodeOfType(T.Property)
-const isCallExpression = isNodeOfType(T.CallExpression)
-const isMemberExpression = isNodeOfType(T.MemberExpression)
-const isLiteral = isNodeOfType(T.Literal)
+import {
+  isArrayExpression,
+  isJSXAttribute,
+  isJSXElement,
+  isJSXExpression,
+  isJSXIdentifier,
+  isJSXMemberExpression,
+  isJSXSpreadAttribute,
+  isLiteral,
+  isMemberExpression,
+  isObjectPattern,
+  isProperty,
+  isRestElement,
+  isReturnStatement,
+} from './typeGuards'
 
 type ComponentNode =
   | TSESTree.FunctionDeclaration
@@ -64,22 +64,36 @@ export default function reactClassName(options: Options): Plugin {
         range: true,
       })
 
+      let result: MagicString | undefined
+
+      const features: Features = {
+        $join: false,
+      }
+
       // All JSX components have a className prop added.
       const componentNodes = new Set<ComponentNode>()
 
       const enter = (node: TSESTree.Node) => {
-        if (
-          isArrowFunctionExpression(node) ||
-          isFunctionExpression(node) ||
-          isFunctionDeclaration(node)
-        ) {
-        } else if (isJSXElement(node)) {
-          // Step 1: Gather JSX components in this module.
+        if (isJSXElement(node)) {
+          const returnOrParentElement = findReturnOrParentElement(node)
+
+          // Avoid transforming "class" attributes for returned JSX elements, since they will be
+          // transformed by the addClassNameProp function later.
+          if (!isReturnStatement(returnOrParentElement)) {
+            const classAttribute = findClassAttribute(node)
+            if (classAttribute) {
+              result ||= new MagicString(code)
+              transformClassAttribute(classAttribute, result, features)
+            }
+          }
+
           const componentNode = findParentNode(node, ComponentNode)
           if (componentNode) {
+            // Detect function component using `function` keyword.
             if (componentNode.id && isPascalCase(componentNode.id.name)) {
               componentNodes.add(componentNode)
             } else {
+              // Detect function component expression.
               const parent = findParentNode(componentNode, T.VariableDeclarator)
               if (
                 parent &&
@@ -96,10 +110,20 @@ export default function reactClassName(options: Options): Plugin {
       simpleTraverse(ast, { enter }, true)
 
       if (componentNodes.size > 0) {
-        const result = new MagicString(code)
+        result ||= new MagicString(code)
 
         for (const component of componentNodes) {
-          addClassNameProp(component, result, id)
+          addClassNameProp(component, result, id, features)
+        }
+
+        if (features.$join) {
+          const rootDir =
+            process.env.TEST === 'vite-react-classname'
+              ? '/path/to/vite-react-classname'
+              : new URL('.', import.meta.url).pathname
+
+          const clientPath = path.resolve(rootDir, 'client.js')
+          result.prepend(`import { $join } from "/@fs/${clientPath}";\n`)
         }
 
         if (!result.hasChanged()) {
@@ -118,10 +142,15 @@ export default function reactClassName(options: Options): Plugin {
   }
 }
 
+type Features = {
+  $join: boolean
+}
+
 function addClassNameProp(
   node: ComponentNode,
   result: MagicString,
-  filename: string
+  filename: string,
+  features: Features
 ) {
   let classNameAdded = false
   let propsVariable: TSESTree.Identifier | undefined
@@ -140,122 +169,128 @@ function addClassNameProp(
         isIdentifier(prop.key) &&
         prop.key.name === 'className'
     )
-    if (classNameProp) {
-      return // Assume the className is being forwarded
-    }
-
-    // className will exist in the rest prop if it exists
-    const restProp = propsArgument.properties.find(isRestElement)
-    if (restProp && isIdentifier(restProp.argument)) {
-      propsVariable = restProp.argument
-    } else {
-      // className must be added to the destructured props
-      const openBraceIndex = propsArgument.range[0]
-      result.appendLeft(openBraceIndex + 1, 'className: $cn, ')
-      classNameAdded = true
+    if (!classNameProp) {
+      // className will exist in the rest prop if it exists
+      const restProp = propsArgument.properties.find(isRestElement)
+      if (restProp && isIdentifier(restProp.argument)) {
+        propsVariable = restProp.argument
+      } else {
+        // className must be added to the destructured props
+        const openBraceIndex = propsArgument.range[0]
+        result.appendLeft(openBraceIndex + 1, 'className: $cn,')
+        classNameAdded = true
+      }
     }
   } else if (isIdentifier(propsArgument)) {
     propsVariable = propsArgument
-  } else {
-    return // Unsupported props argument
   }
 
+  const classNameProp = classNameAdded
+    ? '$cn'
+    : propsVariable
+      ? 'props.className'
+      : null
+
   const addClassNameToJSXElement = (element: TSESTree.JSXElement) => {
-    if (propsVariable) {
-      const hasPropsSpread = element.openingElement.attributes.some(
-        attr =>
+    let className = element.openingElement.attributes.find(
+      (attr): attr is TSESTree.JSXAttribute =>
+        isJSXAttribute(attr) && attr.name.name === 'className'
+    )
+
+    const classAttribute = findClassAttribute(element)
+    if (classAttribute) {
+      if (className) {
+        throw new Error(
+          '[vite-react-classname] JSX element cannot have both "className" and "class" attributes'
+        )
+      }
+      transformClassAttribute(classAttribute, result, features)
+      className = classAttribute
+    }
+
+    const spreadProps =
+      propsVariable &&
+      element.openingElement.attributes.find(
+        (attr): attr is TSESTree.JSXSpreadAttribute =>
           isJSXSpreadAttribute(attr) &&
           isIdentifier(attr.argument) &&
           attr.argument.name === propsVariable.name
       )
-      if (hasPropsSpread) {
-        return // className is being forwarded by props spread
+
+    if (className) {
+      // Look for props.className being referenced anywhere in the className attribute value
+      if (propsVariable && isJSXExpression(className.value)) {
+        let found = false
+        simpleTraverse(className.value.expression, {
+          enter: node => {
+            if (found) return
+            if (
+              isMemberExpression(node) &&
+              isIdentifier(node.object) &&
+              node.object.name === propsVariable.name &&
+              isIdentifier(node.property) &&
+              node.property.name === 'className'
+            ) {
+              found = true
+            }
+          },
+        })
+        if (found) {
+          return // className is being forwarded by props.className
+        }
       }
-    }
 
-    let insertPos: number
+      // Merge className prop into className attribute value
+      if (classNameProp) {
+        if (isLiteral(className.value)) {
+          // Convert string attribute value to JSX expression container
+          const [start, end] = className.value.range
+          result.appendRight(start, '{$join(')
+          result.prependLeft(end, `, ${classNameProp})}`)
+          features.$join = true
+        } else if (isJSXExpression(className.value)) {
+          const { expression } = className.value
+          const [start, end] = expression.range
 
-    // Check for explicit className prop
-    if (element.openingElement.attributes.length > 0) {
-      const classNameAttr = element.openingElement.attributes.find(
-        (attr): attr is TSESTree.JSXAttribute =>
-          isJSXAttribute(attr) && attr.name.name === 'className'
-      )
-      if (classNameAttr) {
-        // Look for props.className being referenced anywhere in the className attribute value
-        if (propsVariable && isJSXExpression(classNameAttr.value)) {
-          let found = false
-          simpleTraverse(classNameAttr.value.expression, {
-            enter: node => {
-              if (found) return
-              // Look for propsVariable member expression
-              if (
-                isMemberExpression(node) &&
-                isIdentifier(node.object) &&
-                node.object.name === propsVariable.name
-              ) {
-                // Look for className identifier
-                if (
-                  isIdentifier(node.property) &&
-                  node.property.name === 'className'
-                ) {
-                  found = true
-                }
-              }
-            },
-          })
-          if (found) {
-            return // className is being forwarded by props.className
+          if (classAttribute && isArrayExpression(expression)) {
+            // Remove the array braces in favor of $join(…)
+            result.overwrite(start, start + 1, '$join(')
+            result.overwrite(end - 1, end, `, ${classNameProp})`)
+            features.$join = true
+          } else {
+            result.appendRight(start, '$join(')
+            result.prependLeft(end, `, ${classNameProp})`)
+            features.$join = true
           }
-          // Append props.className to className attribute value
-          const [start, end] = classNameAttr.value.expression.range
-          result.appendLeft(start, '(')
-          result.appendRight(
-            end,
-            ') + (props.className ? " " + props.className : "")'
+        } else {
+          console.warn(
+            '[vite-react-classname] Unsupported "className" value at',
+            filename +
+              ':' +
+              className.loc.start.line +
+              ':' +
+              className.loc.start.column
           )
           return
         }
-
-        // Merge $cn into className attribute value
-        if (isLiteral(classNameAttr.value)) {
-          // Convert string attribute value to JSX expression container
-          const [start, end] = classNameAttr.value.range
-          result.appendRight(start, '{')
-          result.prependLeft(end, ' + ($cn ? " " + $cn : "")}')
-          return
-        }
-
-        if (isJSXExpression(classNameAttr.value)) {
-          const [start, end] = classNameAttr.value.expression.range
-          if (!isCallExpression(classNameAttr.value.expression)) {
-            result.appendRight(start, '(')
-            result.prependLeft(end, ') + ($cn ? " " + $cn : "")')
-            return
-          }
-          result.prependLeft(end, ' + ($cn ? " " + $cn : "")')
-          return
-        }
-
-        console.warn(
-          '[vite-react-classname] Unsupported "className" value at',
-          filename +
-            ':' +
-            classNameAttr.loc.start.line +
-            ':' +
-            classNameAttr.loc.start.column
-        )
-        return
       }
 
-      const lastAttr = element.openingElement.attributes.at(-1)!
-      insertPos = lastAttr.range[1]
-    } else {
-      insertPos = element.openingElement.name.range[1]
-    }
+      // Move className attribute to after props spread
+      if (spreadProps && className.range[0] < spreadProps.range[0]) {
+        let [start, end] = className.range
+        // Preserve space before className attribute
+        if (result.original[start - 1] === ' ') {
+          start -= 1
+        }
+        result.move(start, end, spreadProps.range[1])
+      }
+    } else if (classNameProp) {
+      const lastAttr = element.openingElement.attributes.at(-1)
+      const insertPos =
+        lastAttr?.range[1] ?? element.openingElement.name.range[1]
 
-    const classNameId = classNameAdded ? '$cn' : 'props.className'
-    result.appendLeft(insertPos, ` className={${classNameId}}`)
+      result.appendLeft(insertPos, ` className={${classNameProp}}`)
+    }
   }
 
   // Find the root JSX element of each return statement.
@@ -265,23 +300,25 @@ function addClassNameProp(
         return
       }
       const tag = node.openingElement.name
-      if (isJSXIdentifier(tag) && tag.name.endsWith('Provider')) {
+      if (jsxIdentifierEndsWith(tag, 'Provider')) {
         return // Skip context providers
       }
-      const returnOrParentElement = findParentNode(
-        node,
-        [T.ReturnStatement, T.JSXElement],
-        parent =>
-          // Avoid adding className to provider components
-          !isJSXElement(parent) ||
-          !isJSXIdentifier(parent.openingElement.name) ||
-          !parent.openingElement.name.name.endsWith('Provider')
-      )
+      const returnOrParentElement = findReturnOrParentElement(node)
       if (isReturnStatement(returnOrParentElement)) {
         addClassNameToJSXElement(node)
       }
     },
   })
+}
+
+function findReturnOrParentElement(node: TSESTree.JSXElement) {
+  return findParentNode(
+    node,
+    [T.ReturnStatement, T.JSXElement],
+    parent =>
+      !isJSXElement(parent) ||
+      !jsxIdentifierEndsWith(parent.openingElement.name, 'Provider')
+  )
 }
 
 function isPascalCase(str: string) {
@@ -301,4 +338,55 @@ function findParentNode<TNodeType extends T>(
     }
     parent = parent.parent
   }
+}
+
+function findAndTransformClassAttribute(
+  node: TSESTree.JSXElement,
+  result: MagicString,
+  features: Features
+) {
+  const classAttribute = findClassAttribute(node)
+  if (classAttribute) {
+    transformClassAttribute(classAttribute, result, features)
+  }
+}
+
+function findClassAttribute(node: TSESTree.JSXElement) {
+  return node.openingElement.attributes.find(
+    (attr): attr is TSESTree.JSXAttribute =>
+      isJSXAttribute(attr) && attr.name.name === 'class'
+  )
+}
+
+function transformClassAttribute(
+  classAttribute: TSESTree.JSXAttribute,
+  result: MagicString,
+  features: Features
+) {
+  // Rewrite class to className
+  result.overwrite(...classAttribute.name.range, 'className')
+
+  // Convert array to $join(…)
+  if (
+    isJSXExpression(classAttribute.value) &&
+    isArrayExpression(classAttribute.value.expression)
+  ) {
+    const [start, end] = classAttribute.value.expression.range
+    result.overwrite(start, start + 1, '$join(')
+    result.overwrite(end - 1, end, ')')
+    features.$join = true
+  }
+}
+
+function jsxIdentifierEndsWith(
+  identifier: TSESTree.JSXTagNameExpression,
+  suffix: string
+) {
+  if (isJSXIdentifier(identifier)) {
+    return identifier.name.endsWith(suffix)
+  }
+  if (isJSXMemberExpression(identifier)) {
+    return jsxIdentifierEndsWith(identifier.property, suffix)
+  }
+  return false
 }
