@@ -36,11 +36,13 @@ export type Options = {
 }
 
 export default function reactClassName(options: Options = {}): Plugin {
+  const filter = /\.[jt]sx$/
+
   return {
     name: 'vite-react-classname',
     enforce: 'pre',
     async transform(code, id) {
-      if (!id.endsWith('.tsx')) return
+      if (!filter.test(id)) return
       if (options.skipNodeModules && id.includes('node_modules')) return
 
       const ast = parse(code, {
