@@ -37,13 +37,18 @@ const ComponentNode = [
   T.FunctionExpression,
 ] as const
 
-type Options = {
+export type Options = {
   /**
    * Whether to skip transforming components in `node_modules`.
    *
    * @default false
    */
   skipNodeModules?: boolean
+  /**
+   * Callback function that is called with the transformed code.
+   * Exists for testing and debugging.
+   */
+  onTransform?: (code: string, id: string) => void
 }
 
 export default function reactClassName(options: Options): Plugin {
@@ -102,8 +107,11 @@ export default function reactClassName(options: Options): Plugin {
           return
         }
 
+        const transformedCode = result.toString()
+        options.onTransform?.(transformedCode, id)
+
         return {
-          code: result.toString(),
+          code: transformedCode,
           map: result.generateMap({ hires: 'boundary' }),
         }
       }

@@ -1,7 +1,13 @@
 {
   "extends": "../tsconfig.json",
-  "include": ["./"],
+  "include": [
+    "./"
+  ],
   "compilerOptions": {
-    "types": ["node", "vitest/globals"]
+    "types": [
+      "node",
+      "vitest/globals"
+    ],
+    "jsx": "react-jsx"
   }
 }
