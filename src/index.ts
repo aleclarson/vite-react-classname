@@ -242,9 +242,15 @@ function addClassNameProp(
           const [start, end] = expression.range
 
           if (classAttribute && isArrayExpression(expression)) {
+            const lastElement = expression.elements.at(-1)
+            const comma =
+              !!lastElement && result.original[lastElement.range[1]] !== ','
+                ? ', '
+                : ''
+
             // Remove the array braces in favor of $join(…)
             result.overwrite(start, start + 1, '$join(')
-            result.overwrite(end - 1, end, `, ${classNameProp})`)
+            result.overwrite(end - 1, end, `${comma}${classNameProp})`)
             features.$join = true
           } else {
             result.appendRight(start, '$join(')

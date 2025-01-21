@@ -1,5 +1,12 @@
 function Foo() {
-  return <div class={['foo', 'bar']} />
+  return (
+    <div
+      class={[
+        'a very long class name string that creates a multi-line expression with a trailing comma',
+        'bar',
+      ]}
+    />
+  )
 }
 
 function Bar() {

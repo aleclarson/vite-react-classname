@@ -105,7 +105,14 @@ describe('vite-react-classname', () => {
     expect(result).toMatchInlineSnapshot(`
       "import { joinClassNames as $join } from "/@fs//path/to/vite-react-classname/client.js";
       function Foo({ className: $cn }) {
-        return <div className={$join('foo', 'bar', $cn)} />
+        return (
+          <div
+            className={$join(
+              'a very long class name string that creates a multi-line expression with a trailing comma',
+              'bar',
+            $cn)}
+          />
+        )
       }
 
       function Bar({ className: $cn }) {
