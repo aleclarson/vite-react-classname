@@ -110,7 +110,9 @@ export default function reactClassName(options: Options = {}): Plugin {
               : new URL('.', import.meta.url).pathname
 
           const clientPath = path.resolve(rootDir, 'client.js')
-          result.prepend(`import { $join } from "/@fs/${clientPath}";\n`)
+          result.prepend(
+            `import { joinClassNames as $join } from "/@fs/${clientPath}";\n`
+          )
         }
 
         if (!result.hasChanged()) {
