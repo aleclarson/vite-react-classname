@@ -46,7 +46,6 @@ export default function reactClassName(options: Options = {}): Plugin {
   const filter = /\.[jt]sx$/
 
   const isElementIgnored = (element: TSESTree.JSXElement) =>
-    !isFirstElementChild(element) ||
     jsxIdentifierEndsWith(element.openingElement.name, 'Provider') ||
     Boolean(
       options.ignoredTagNames?.includes(
@@ -85,7 +84,10 @@ export default function reactClassName(options: Options = {}): Plugin {
 
           // Avoid transforming "class" attributes for returned JSX elements, since they will be
           // transformed by the addClassNameProp function later.
-          if (!isReturnStatement(returnOrParentElement)) {
+          if (
+            !isReturnStatement(returnOrParentElement) ||
+            !isFirstElementChild(node)
+          ) {
             const classAttribute = findClassAttribute(node)
             if (classAttribute) {
               result ||= new MagicString(code)
@@ -311,7 +313,11 @@ function addClassNameProp(
   // Find the root JSX element of each return statement.
   simpleTraverse(node, {
     enter: node => {
-      if (isJSXElement(node) && !isElementIgnored(node)) {
+      if (
+        isJSXElement(node) &&
+        isFirstElementChild(node) &&
+        !isElementIgnored(node)
+      ) {
         const returnOrParentElement = findReturnOrParentElement(
           node,
           isElementIgnored

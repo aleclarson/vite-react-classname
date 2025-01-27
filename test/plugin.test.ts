@@ -147,7 +147,7 @@ describe('vite-react-classname', () => {
         return (
           <FocusRing>
             <div className={$cn}>Child 1</div>
-            <div>Child 2</div>
+            <div className="foo">Child 2</div>
           </FocusRing>
         )
       }

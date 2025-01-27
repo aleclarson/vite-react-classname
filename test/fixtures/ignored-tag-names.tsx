@@ -4,7 +4,7 @@ function Component() {
   return (
     <FocusRing>
       <div>Child 1</div>
-      <div>Child 2</div>
+      <div class="foo">Child 2</div>
     </FocusRing>
   )
 }
