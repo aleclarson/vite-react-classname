@@ -44,6 +44,11 @@ export default defineConfig({
 
 ### Plugin options
 
+- `ignoredTagNames?: string[]`  
+  When a JSX element is encountered with one of these “tag names”, its first child will receive the `className` prop instead. The tag name may include a dot to indicate a nested component.
+
+  Note that tag names ending in "Provider" are automatically ignored.
+
 - `skipNodeModules?: boolean`  
   Whether to skip transforming components in `node_modules`. Note that only uncompiled JSX is transformed (not `React.createElement` or `jsx` calls). Defaults to `false`.
 
