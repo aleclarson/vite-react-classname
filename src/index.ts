@@ -23,6 +23,13 @@ const ComponentNode = [
 
 export type Options = {
   /**
+   * When a JSX element is encountered with one of these “tag names”, its first child will receive
+   * the `className` prop instead. The tag name may include a dot to indicate a nested component.
+   *
+   * Note that tag names ending in "Provider" are automatically ignored.
+   */
+  ignoredTagNames?: string[]
+  /**
    * Whether to skip transforming components in `node_modules`.
    *
    * @default false
@@ -100,7 +107,7 @@ export default function reactClassName(options: Options = {}): Plugin {
         result ||= new MagicString(code)
 
         for (const component of componentNodes) {
-          addClassNameProp(component, result, id, features)
+          addClassNameProp(component, result, id, features, options)
         }
 
         if (features.$join) {
@@ -139,7 +146,8 @@ function addClassNameProp(
   node: ComponentNode,
   result: MagicString,
   filename: string,
-  features: Features
+  features: Features,
+  options: Options
 ) {
   let classNameAdded = false
   let propsVariable: TSESTree.Identifier | undefined
@@ -298,6 +306,9 @@ function addClassNameProp(
       if (jsxIdentifierEndsWith(tag, 'Provider')) {
         return // Skip context providers
       }
+      if (options.ignoredTagNames?.includes(jsxTagNameToString(tag))) {
+        return // Skip ignored tag names
+      }
       const returnOrParentElement = findReturnOrParentElement(node)
       if (isReturnStatement(returnOrParentElement)) {
         addClassNameToJSXElement(node)
@@ -373,6 +384,16 @@ function jsxIdentifierEndsWith(
     return jsxIdentifierEndsWith(identifier.property, suffix)
   }
   return false
+}
+
+function jsxTagNameToString(tag: TSESTree.JSXTagNameExpression): string {
+  if (isJSXIdentifier(tag)) {
+    return tag.name
+  }
+  if (isJSXMemberExpression(tag)) {
+    return jsxTagNameToString(tag.object) + '.' + tag.property.name
+  }
+  return ''
 }
 
 const isJSXElement = isNodeOfType(T.JSXElement)
