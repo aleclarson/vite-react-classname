@@ -135,6 +135,25 @@ describe('vite-react-classname', () => {
       "
     `)
   })
+
+  test('the ignoredTagNames option', async () => {
+    const result = await transform('ignored-tag-names.tsx', {
+      ignoredTagNames: ['FocusRing'],
+    })
+    expect(result).toMatchInlineSnapshot(`
+      "declare const FocusRing: React.ComponentType<any>
+
+      function Component({ className: $cn }) {
+        return (
+          <FocusRing>
+            <div className={$cn}>Child 1</div>
+            <div>Child 2</div>
+          </FocusRing>
+        )
+      }
+      "
+    `)
+  })
 })
 
 async function transform(fixtureId: string, options: Options = {}) {

@@ -45,6 +45,15 @@ export type Options = {
 export default function reactClassName(options: Options = {}): Plugin {
   const filter = /\.[jt]sx$/
 
+  const isElementIgnored = (element: TSESTree.JSXElement) =>
+    !isFirstElementChild(element) ||
+    jsxIdentifierEndsWith(element.openingElement.name, 'Provider') ||
+    Boolean(
+      options.ignoredTagNames?.includes(
+        jsxTagNameToString(element.openingElement.name)
+      )
+    )
+
   return {
     name: 'vite-react-classname',
     enforce: 'pre',
@@ -69,7 +78,10 @@ export default function reactClassName(options: Options = {}): Plugin {
 
       const enter = (node: TSESTree.Node) => {
         if (isJSXElement(node)) {
-          const returnOrParentElement = findReturnOrParentElement(node)
+          const returnOrParentElement = findReturnOrParentElement(
+            node,
+            isElementIgnored
+          )
 
           // Avoid transforming "class" attributes for returned JSX elements, since they will be
           // transformed by the addClassNameProp function later.
@@ -107,7 +119,7 @@ export default function reactClassName(options: Options = {}): Plugin {
         result ||= new MagicString(code)
 
         for (const component of componentNodes) {
-          addClassNameProp(component, result, id, features, options)
+          addClassNameProp(component, result, id, features, isElementIgnored)
         }
 
         if (features.$join) {
@@ -147,7 +159,7 @@ function addClassNameProp(
   result: MagicString,
   filename: string,
   features: Features,
-  options: Options
+  isElementIgnored: (element: TSESTree.JSXElement) => boolean
 ) {
   let classNameAdded = false
   let propsVariable: TSESTree.Identifier | undefined
@@ -299,31 +311,27 @@ function addClassNameProp(
   // Find the root JSX element of each return statement.
   simpleTraverse(node, {
     enter: node => {
-      if (!isJSXElement(node)) {
-        return
-      }
-      const tag = node.openingElement.name
-      if (jsxIdentifierEndsWith(tag, 'Provider')) {
-        return // Skip context providers
-      }
-      if (options.ignoredTagNames?.includes(jsxTagNameToString(tag))) {
-        return // Skip ignored tag names
-      }
-      const returnOrParentElement = findReturnOrParentElement(node)
-      if (isReturnStatement(returnOrParentElement)) {
-        addClassNameToJSXElement(node)
+      if (isJSXElement(node) && !isElementIgnored(node)) {
+        const returnOrParentElement = findReturnOrParentElement(
+          node,
+          isElementIgnored
+        )
+        if (isReturnStatement(returnOrParentElement)) {
+          addClassNameToJSXElement(node)
+        }
       }
     },
   })
 }
 
-function findReturnOrParentElement(node: TSESTree.JSXElement) {
+function findReturnOrParentElement(
+  node: TSESTree.JSXElement,
+  isElementIgnored: (element: TSESTree.JSXElement) => boolean
+) {
   return findParentNode(
     node,
     [T.ReturnStatement, T.JSXElement],
-    parent =>
-      !isJSXElement(parent) ||
-      !jsxIdentifierEndsWith(parent.openingElement.name, 'Provider')
+    parent => !isJSXElement(parent) || !isElementIgnored(parent)
   )
 }
 
@@ -394,6 +402,13 @@ function jsxTagNameToString(tag: TSESTree.JSXTagNameExpression): string {
     return jsxTagNameToString(tag.object) + '.' + tag.property.name
   }
   return ''
+}
+
+function isFirstElementChild(element: TSESTree.JSXElement) {
+  return (
+    !isJSXElement(element.parent) ||
+    element === element.parent.children.find(child => isJSXElement(child))
+  )
 }
 
 const isJSXElement = isNodeOfType(T.JSXElement)
