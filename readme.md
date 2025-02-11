@@ -80,7 +80,7 @@ This plugin also adds a `class` prop to every component. This prop gets transfor
   The `class` array must be a _static_ array. It's transformed into a [`$join`](https://github.com/aleclarson/vite-react-classname/blob/f64086920b3e7ed07394b3c28f24638f814b17d4/src/client.ts) function call at compile time, which filters out falsy values, flattens nested arrays (which _can_ be dynamic), and joins the class names with a space.
 
 > [!WARNING]
-> You _cannot_ use both `class` and `className` on the same JSX element.
+> You _cannot_ use both `class` and `className` on the same JSX element, but also spreading props with `{...props}` is perfectly fine even if `props.className` is defined.
 
 ## FAQ
 
