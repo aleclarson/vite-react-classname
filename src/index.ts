@@ -82,9 +82,15 @@ export default function reactClassName(options: Options = {}): Plugin {
             isElementIgnored
           )
 
+          const componentNode = findComponentNode(node, componentNodes)
+          if (componentNode) {
+            componentNodes.add(componentNode)
+          }
+
           // Avoid transforming "class" attributes for returned JSX elements, since they will be
           // transformed by the addClassNameProp function later.
           if (
+            !componentNode ||
             !isReturnStatement(returnOrParentElement) ||
             !isFirstElementChild(node)
           ) {
@@ -92,24 +98,6 @@ export default function reactClassName(options: Options = {}): Plugin {
             if (classAttribute) {
               result ||= new MagicString(code)
               transformClassAttribute(classAttribute, result, features)
-            }
-          }
-
-          const componentNode = findParentNode(node, ComponentNode)
-          if (componentNode) {
-            // Detect function component using `function` keyword.
-            if (componentNode.id && isPascalCase(componentNode.id.name)) {
-              componentNodes.add(componentNode)
-            } else {
-              // Detect function component expression.
-              const parent = findParentNode(componentNode, T.VariableDeclarator)
-              if (
-                parent &&
-                isIdentifier(parent.id) &&
-                isPascalCase(parent.id.name)
-              ) {
-                componentNodes.add(componentNode)
-              }
             }
           }
         }
@@ -149,6 +137,29 @@ export default function reactClassName(options: Options = {}): Plugin {
         }
       }
     },
+  }
+}
+
+function findComponentNode(
+  startNode: TSESTree.Node,
+  componentNodes: Set<ComponentNode>
+) {
+  const componentNode = findParentNode(startNode, ComponentNode)
+  if (componentNode) {
+    if (componentNodes.has(componentNode)) {
+      return componentNode
+    }
+
+    // Detect function component using `function` keyword.
+    if (componentNode.id && isPascalCase(componentNode.id.name)) {
+      return componentNode
+    }
+
+    // Detect function component expression.
+    const parent = findParentNode(componentNode, T.VariableDeclarator)
+    if (parent && isIdentifier(parent.id) && isPascalCase(parent.id.name)) {
+      return componentNode
+    }
   }
 }
 
