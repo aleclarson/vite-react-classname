@@ -1,7 +1,7 @@
 {
   "name": "vite-react-classname",
   "type": "module",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
