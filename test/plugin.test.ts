@@ -154,6 +154,28 @@ describe('vite-react-classname', () => {
       "
     `)
   })
+
+  test('higher-order component', async () => {
+    const result = await transform('higher-order-component.tsx')
+    expect(result).toMatchInlineSnapshot(`
+      "import { joinClassNames as $join } from "/@fs//path/to/vite-react-classname/client.js";
+      import { ComponentType } from 'react'
+
+      export function withExtraProps<P extends { className?: string }>(
+        WrappedComponent: ComponentType<P>
+      ) {
+        return function EnhancedComponent(props: P) {
+          return (
+            <WrappedComponent
+              {...props}
+              className={$join('enhanced-component', props.className)}
+            />
+          )
+        }
+      }
+      "
+    `)
+  })
 })
 
 async function transform(fixtureId: string, options: Options = {}) {
