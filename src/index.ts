@@ -1,21 +1,25 @@
 import {
   parse,
-  simpleTraverse,
   AST_NODE_TYPES as T,
   TSESTree,
 } from '@typescript-eslint/typescript-estree'
-import { isIdentifier, isNodeOfType } from '@typescript-eslint/utils/ast-utils'
+import {
+  isIdentifier,
+  isNodeOfType,
+  isNodeOfTypes,
+} from '@typescript-eslint/utils/ast-utils'
 import MagicString from 'magic-string'
 import path from 'path'
 import { isArray } from 'radashi'
 import { Plugin } from 'vite'
+import { traverse } from './utils/traverse'
 
-type ComponentNode =
+type FunctionNode =
   | TSESTree.FunctionDeclaration
   | TSESTree.ArrowFunctionExpression
   | TSESTree.FunctionExpression
 
-const ComponentNode = [
+const FunctionNode = [
   T.FunctionDeclaration,
   T.ArrowFunctionExpression,
   T.FunctionExpression,
@@ -73,16 +77,16 @@ export default function reactClassName(options: Options = {}): Plugin {
       }
 
       // All JSX components have a className prop added.
-      const componentNodes = new Set<ComponentNode>()
+      const componentNodes = new Set<FunctionNode>()
 
-      const enter = (node: TSESTree.Node) => {
-        if (isJSXElement(node)) {
+      traverse(ast, {
+        JSXElement(element) {
           const returnOrParentElement = findReturnOrParentElement(
-            node,
+            element,
             isElementIgnored
           )
 
-          const componentNode = findComponentNode(node, componentNodes)
+          const componentNode = findComponentNode(element, componentNodes)
           if (componentNode) {
             componentNodes.add(componentNode)
           }
@@ -92,18 +96,16 @@ export default function reactClassName(options: Options = {}): Plugin {
           if (
             !componentNode ||
             !isReturnStatement(returnOrParentElement) ||
-            !isFirstElementChild(node)
+            !isFirstElementChild(element)
           ) {
-            const classAttribute = findClassAttribute(node)
+            const classAttribute = findClassAttribute(element)
             if (classAttribute) {
               result ||= new MagicString(code)
               transformClassAttribute(classAttribute, result, features)
             }
           }
-        }
-      }
-
-      simpleTraverse(ast, { enter }, true)
+        },
+      })
 
       if (componentNodes.size > 0) {
         result ||= new MagicString(code)
@@ -142,35 +144,12 @@ export default function reactClassName(options: Options = {}): Plugin {
   }
 }
 
-function findComponentNode(
-  startNode: TSESTree.Node,
-  componentNodes: Set<ComponentNode>
-) {
-  const componentNode = findParentNode(startNode, ComponentNode)
-  if (componentNode) {
-    if (componentNodes.has(componentNode)) {
-      return componentNode
-    }
-
-    // Detect function component using `function` keyword.
-    if (componentNode.id && isPascalCase(componentNode.id.name)) {
-      return componentNode
-    }
-
-    // Detect function component expression.
-    const parent = findParentNode(componentNode, T.VariableDeclarator)
-    if (parent && isIdentifier(parent.id) && isPascalCase(parent.id.name)) {
-      return componentNode
-    }
-  }
-}
-
 type Features = {
   $join: boolean
 }
 
 function addClassNameProp(
-  node: ComponentNode,
+  componentNode: FunctionNode,
   result: MagicString,
   filename: string,
   features: Features,
@@ -179,9 +158,9 @@ function addClassNameProp(
   let classNameAdded = false
   let propsVariable: TSESTree.Identifier | undefined
 
-  const propsArgument = node.params[0]
+  const propsArgument = componentNode.params[0]
   if (!propsArgument) {
-    const openParenIndex = result.original.indexOf('(', node.range[0])
+    const openParenIndex = result.original.indexOf('(', componentNode.range[0])
     result.appendLeft(openParenIndex + 1, '{ className: $cn }')
     classNameAdded = true
   }
@@ -245,19 +224,17 @@ function addClassNameProp(
       // Look for props.className being referenced anywhere in the className attribute value
       if (propsVariable && isJSXExpression(className.value)) {
         let found = false
-        simpleTraverse(className.value.expression, {
-          enter: node => {
-            if (found) return
-            if (
-              isMemberExpression(node) &&
-              isIdentifier(node.object) &&
-              node.object.name === propsVariable.name &&
-              isIdentifier(node.property) &&
-              node.property.name === 'className'
-            ) {
-              found = true
-            }
-          },
+        traverse(className.value.expression, (node, ctrl) => {
+          if (
+            isMemberExpression(node) &&
+            isIdentifier(node.object) &&
+            node.object.name === propsVariable.name &&
+            isIdentifier(node.property) &&
+            node.property.name === 'className'
+          ) {
+            found = true
+            ctrl.stop()
+          }
         })
         if (found) {
           return // className is being forwarded by props.className
@@ -324,22 +301,20 @@ function addClassNameProp(
   }
 
   // Find the root JSX element of each return statement.
-  simpleTraverse(node, {
-    enter: node => {
-      if (
-        isJSXElement(node) &&
-        isFirstElementChild(node) &&
-        !isElementIgnored(node)
-      ) {
-        const returnOrParentElement = findReturnOrParentElement(
-          node,
-          isElementIgnored
-        )
-        if (isReturnStatement(returnOrParentElement)) {
-          addClassNameToJSXElement(node)
-        }
+  traverse(componentNode, (node, ctrl) => {
+    if (
+      isJSXElement(node) &&
+      isFirstElementChild(node) &&
+      !isElementIgnored(node)
+    ) {
+      const returnOrParentElement = findReturnOrParentElement(
+        node,
+        isElementIgnored
+      )
+      if (isReturnStatement(returnOrParentElement)) {
+        addClassNameToJSXElement(node)
       }
-    },
+    }
   })
 }
 
@@ -352,6 +327,38 @@ function findReturnOrParentElement(
     [T.ReturnStatement, T.JSXElement],
     parent => !isJSXElement(parent) || !isElementIgnored(parent)
   )
+}
+
+function findComponentNode(
+  startNode: TSESTree.Node,
+  componentNodes: Set<FunctionNode>
+) {
+  const functionNode = findParentNode(startNode, FunctionNode)
+  if (functionNode && isComponentNode(functionNode, componentNodes)) {
+    return functionNode
+  }
+}
+
+function isComponentNode(
+  node: FunctionNode,
+  componentNodes: Set<FunctionNode>
+) {
+  if (componentNodes.has(node)) {
+    return true
+  }
+
+  // Detect function component using `function` keyword.
+  if (node.id && isPascalCase(node.id.name)) {
+    return true
+  }
+
+  // Detect function component expression.
+  const parent = findParentNode(node, T.VariableDeclarator)
+  if (parent && isIdentifier(parent.id) && isPascalCase(parent.id.name)) {
+    return true
+  }
+
+  return false
 }
 
 function isPascalCase(str: string) {
@@ -443,3 +450,4 @@ const isProperty = isNodeOfType(T.Property)
 const isMemberExpression = isNodeOfType(T.MemberExpression)
 const isArrayExpression = isNodeOfType(T.ArrayExpression)
 const isLiteral = isNodeOfType(T.Literal)
+const isFunctionNode = isNodeOfTypes(FunctionNode)
