@@ -314,6 +314,8 @@ function addClassNameProp(
       if (isReturnStatement(returnOrParentElement)) {
         addClassNameToJSXElement(node)
       }
+    } else if (node !== componentNode && isFunctionNode(node)) {
+      ctrl.skip()
     }
   })
 }
