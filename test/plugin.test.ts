@@ -176,6 +176,23 @@ describe('vite-react-classname', () => {
       "
     `)
   })
+
+  test('nested component', async () => {
+    const result = await transform('nested-component.tsx')
+    expect(result).toMatchInlineSnapshot(`
+      "function Component({ className: $cn }) {
+        function NestedComponent({ className: $cn }) {
+          return <div className={$cn} />
+        }
+        return (
+          <div className={$cn}>
+            <NestedComponent className="foo" />
+          </div>
+        )
+      }
+      "
+    `)
+  })
 })
 
 async function transform(fixtureId: string, options: Options = {}) {
