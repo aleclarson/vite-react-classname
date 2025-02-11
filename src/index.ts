@@ -111,30 +111,32 @@ export default function reactClassName(options: Options = {}): Plugin {
         for (const component of componentNodes) {
           addClassNameProp(component, result, id, features, isElementIgnored)
         }
+      } else if (!result) {
+        return
+      }
 
-        if (features.$join) {
-          const rootDir =
-            process.env.TEST === 'vite-react-classname'
-              ? '/path/to/vite-react-classname'
-              : new URL('.', import.meta.url).pathname
+      if (features.$join) {
+        const rootDir =
+          process.env.TEST === 'vite-react-classname'
+            ? '/path/to/vite-react-classname'
+            : new URL('.', import.meta.url).pathname
 
-          const clientPath = path.resolve(rootDir, 'client.js')
-          result.prepend(
-            `import { joinClassNames as $join } from "/@fs/${clientPath}";\n`
-          )
-        }
+        const clientPath = path.resolve(rootDir, 'client.js')
+        result.prepend(
+          `import { joinClassNames as $join } from "/@fs/${clientPath}";\n`
+        )
+      }
 
-        if (!result.hasChanged()) {
-          return
-        }
+      if (!result.hasChanged()) {
+        return
+      }
 
-        const transformedCode = result.toString()
-        options.onTransform?.(transformedCode, id)
+      const transformedCode = result.toString()
+      options.onTransform?.(transformedCode, id)
 
-        return {
-          code: transformedCode,
-          map: result.generateMap({ hires: 'boundary' }),
-        }
+      return {
+        code: transformedCode,
+        map: result.generateMap({ hires: 'boundary' }),
       }
     },
   }
